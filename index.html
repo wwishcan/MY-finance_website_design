@@ -44,8 +44,12 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-
-        // --- 图标组件 (用来替代 lucide-react) ---
+    
+        // --- Worker URL ---
+        const WORKER_URL = "https://quant-fusion-pro.w2632046629.workers.dev";
+        // ------------------
+    
+        // --- 图标组件 (略，保持不变) ---
         const IconWrapper = ({ children, className, ...props }) => (
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -63,7 +67,7 @@
                 {children}
             </svg>
         );
-
+    
         const BarChart3 = (props) => <IconWrapper {...props}><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></IconWrapper>;
         const TrendingUp = (props) => <IconWrapper {...props}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></IconWrapper>;
         const Globe = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></IconWrapper>;
@@ -78,8 +82,11 @@
         const Mail = (props) => <IconWrapper {...props}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></IconWrapper>;
         const Linkedin = (props) => <IconWrapper {...props}><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></IconWrapper>;
         const Twitter = (props) => <IconWrapper {...props}><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></IconWrapper>;
-
-        // --- 数据部分 ---
+        const Bot = (props) => <IconWrapper {...props}><path d="M12 8V4H8"/><path d="m5 24 1 5"/><path d="m14 24 1 5"/><path d="M12 24 12 20"/><path d="M18 10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2z"/></IconWrapper>;
+        const Send = (props) => <IconWrapper {...props}><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M15 7l-6 6"/></IconWrapper>;
+    
+    
+        // --- 数据部分 (保持不变) ---
         const marketData = [
             { name: '现货黄金', value: '2,624.50', change: '+0.45%', isUp: true },
             { name: '上证指数', value: '3,050.12', change: '-0.21%', isUp: false },
@@ -88,8 +95,8 @@
             { name: '布伦特原油', value: '82.40', change: '-0.50%', isUp: false },
             { name: '美元指数', value: '104.30', change: '+0.15%', isUp: true },
             { name: 'BTC/USD', value: '64,200', change: '+2.10%', isUp: true },
-      ];
-
+        ];
+    
         const researchReports = [
             {
                 id: 1,
@@ -132,8 +139,108 @@
                 views: 432
             }
         ];
-
-        // --- 导航组件 ---
+    
+        // --- 新增 AI 聊天组件 ---
+        const AIChatAssistant = () => {
+            const [prompt, setPrompt] = useState('');
+            const [response, setResponse] = useState('欢迎使用金融 AI 助手！请输入你的问题，例如：“美联储降息对黄金价格有什么影响？”');
+            const [isLoading, setIsLoading] = useState(false);
+    
+            const handleAskAI = async () => {
+                if (!prompt.trim() || isLoading) return;
+    
+                setIsLoading(true);
+                setResponse('AI 正在思考中... ⏳');
+    
+                try {
+                    const fetchResponse = await fetch(WORKER_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt: prompt })
+                    });
+    
+                    if (!fetchResponse.ok) {
+                        throw new Error(`Worker 返回 HTTP 错误! 状态码: ${fetchResponse.status}`);
+                    }
+    
+                    const data = await fetchResponse.json();
+                    
+                    // 解析 Gemini 返回的 JSON 结构
+                    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                        const aiText = data.candidates[0].content.parts[0].text;
+                        setResponse(aiText);
+                    } else if (data.error) {
+                         setResponse("Worker 内部错误或 Google API 错误: " + JSON.stringify(data.error.message || data.error));
+                    } else {
+                        setResponse("AI 没有返回有效内容，请检查浏览器控制台日志。");
+                        console.error("完整的 API 响应:", data);
+                    }
+    
+                } catch (error) {
+                    setResponse("连接错误: " + error.message);
+                    console.error(error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+    
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleAskAI();
+                }
+            };
+    
+            return (
+                <div className="max-w-7xl mx-auto px-4 pt-8 pb-16">
+                    <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-6 lg:p-8">
+                        <h3 className="text-2xl font-bold text-blue-600 mb-4 flex items-center gap-2">
+                            <Bot className="w-6 h-6" />
+                            金融 AI 智能助手
+                        </h3>
+                        <p className="text-sm text-slate-500 mb-6">
+                            基于最新的金融数据和报告，获取即时的市场分析和总结。
+                        </p>
+    
+                        <div className="mb-6">
+                            <textarea
+                                id="promptInput"
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
+                                onKeyPress={handleKeyPress}
+                                rows="4"
+                                placeholder="请输入你的金融问题（Shift + Enter 换行，Enter 键发送）"
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                                disabled={isLoading}
+                            />
+                            <button
+                                onClick={handleAskAI}
+                                disabled={isLoading}
+                                className={`mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold transition-colors ${
+                                    isLoading 
+                                        ? 'bg-blue-400 text-white cursor-not-allowed' 
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                            >
+                                {isLoading ? '正在分析...' : '发送请求'}
+                                {!isLoading && <Send className="w-5 h-5" />}
+                            </button>
+                        </div>
+    
+                        <div className="mt-4 border-t border-slate-100 pt-4">
+                            <h4 className="text-lg font-semibold text-slate-800 mb-2">
+                                AI 分析结果：
+                            </h4>
+                            <div className="bg-blue-50 text-slate-700 p-4 rounded-lg whitespace-pre-wrap">
+                                {response}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // --- 导航组件 (略，保持不变) ---
         const Navigation = ({ activeTab, setActiveTab, isMenuOpen, setIsMenuOpen }) => (
             <nav className="sticky top-0 z-50 bg-white shadow-sm border-b border-slate-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -144,7 +251,7 @@
                         </div>
                         
                         <div className="hidden md:flex items-center gap-8">
-                            {['all', 'gold', 'stocks', 'forex', 'energy', 'about'].map(tab => (
+                            {['all', 'gold', 'stocks', 'forex', 'energy', 'ai', 'about'].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -154,11 +261,11 @@
                                             : 'text-slate-600 hover:text-slate-900'
                                     }`}
                                 >
-                                    {tab === 'all' ? '全部' : tab === 'gold' ? '黄金' : tab === 'stocks' ? '股票' : tab === 'forex' ? '外汇' : tab === 'energy' ? '能源' : '关于'}
+                                    {tab === 'all' ? '全部' : tab === 'gold' ? '黄金' : tab === 'stocks' ? '股票' : tab === 'forex' ? '外汇' : tab === 'energy' ? '能源' : tab === 'ai' ? 'AI助手' : '关于'}
                                 </button>
                             ))}
                         </div>
-
+    
                         <button 
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
                             className="md:hidden p-2 hover:bg-slate-100 rounded-lg"
@@ -166,10 +273,10 @@
                             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                         </button>
                     </div>
-
+    
                     {isMenuOpen && (
                         <div className="md:hidden pb-4 flex flex-col gap-3">
-                            {['all', 'gold', 'stocks', 'forex', 'energy', 'about'].map(tab => (
+                            {['all', 'gold', 'stocks', 'forex', 'energy', 'ai', 'about'].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => {
@@ -178,7 +285,7 @@
                                     }}
                                     className="text-left text-slate-600 hover:text-slate-900 font-medium"
                                 >
-                                    {tab === 'all' ? '全部' : tab === 'gold' ? '黄金' : tab === 'stocks' ? '股票' : tab === 'forex' ? '外汇' : tab === 'energy' ? '能源' : '关于'}
+                                    {tab === 'all' ? '全部' : tab === 'gold' ? '黄金' : tab === 'stocks' ? '股票' : tab === 'forex' ? '外汇' : tab === 'energy' ? '能源' : tab === 'ai' ? 'AI助手' : '关于'}
                                 </button>
                             ))}
                         </div>
@@ -186,8 +293,8 @@
                 </div>
             </nav>
         );
-
-        // --- 行情滚动条组件 ---
+    
+        // --- 行情滚动条组件 (略，保持不变) ---
         const Ticker = () => (
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3 border-b border-slate-200">
                 <div className="max-w-7xl mx-auto px-4">
@@ -210,8 +317,8 @@
                 </div>
             </div>
         );
-
-        // --- 英雄区域 ---
+    
+        // --- 英雄区域 (略，保持不变) ---
         const Hero = () => (
             <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white py-20 px-4">
                 <div className="max-w-7xl mx-auto text-center">
@@ -233,8 +340,8 @@
                 </div>
             </div>
         );
-
-        // --- 研究报告卡片 ---
+    
+        // --- 研究报告卡片 (略，保持不变) ---
         const ReportCard = ({ report }) => (
             <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 border border-slate-100 flex flex-col">
                 <div className="flex items-start justify-between mb-3">
@@ -263,13 +370,18 @@
                 </div>
             </div>
         );
-
-        // --- 内容区域 ---
+    
+        // --- 内容区域 (修改: 添加 AI 助手和新的 AI tab 逻辑) ---
         const ContentSection = ({ activeTab }) => {
+            if (activeTab === 'ai') {
+                // 如果用户选择了 AI 助手标签，则只显示 AI 聊天组件
+                return <AIChatAssistant />;
+            }
+    
             const filteredReports = activeTab === 'all' 
                 ? researchReports 
                 : researchReports.filter(r => r.category === activeTab);
-
+    
             return (
                 <div className="max-w-7xl mx-auto px-4 py-16">
                     <div className="mb-12">
@@ -280,7 +392,7 @@
                             获取专业的金融市场分析和投资建议
                         </p>
                     </div>
-
+    
                     {filteredReports.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredReports.map(report => (
@@ -295,8 +407,8 @@
                 </div>
             );
         };
-
-        // --- 关于我们 ---
+    
+        // --- 关于我们 (略，保持不变) ---
         const AboutSection = () => (
             <div className="max-w-7xl mx-auto px-4 py-16">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -323,8 +435,8 @@
                 </div>
             </div>
         );
-
-        // --- 页脚 ---
+    
+        // --- 页脚 (略，保持不变) ---
         const Footer = () => (
             <footer className="bg-slate-900 text-white py-12 px-4">
                 <div className="max-w-7xl mx-auto">
@@ -376,16 +488,17 @@
                 </div>
             </footer>
         );
-
-        // --- 主应用组件 ---
+    
+        // --- 主应用组件 (修改: 增加 'ai' 标签的路由逻辑) ---
         const App = () => {
             const [activeTab, setActiveTab] = useState('all');
             const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+    
             useEffect(() => {
                 window.scrollTo(0, 0);
             }, [activeTab]);
-
+    
+            // 导航栏新增 'ai' 标签，并处理相应的内容切换逻辑
             return (
                 <div className="min-h-screen bg-white font-sans text-slate-900">
                     <Navigation 
@@ -396,21 +509,24 @@
                     />
                     
                     <Ticker />
-
+    
                     {activeTab === 'about' ? (
                         <AboutSection />
                     ) : (
                         <>
+                            {/* 仅在 'all' 标签显示 Hero 区域 */}
                             {activeTab === 'all' && <Hero />}
+                            
+                            {/* 在 'all', 'gold', 'stocks', 'forex', 'energy', 'ai' 标签显示内容区域 */}
                             <ContentSection activeTab={activeTab} />
                         </>
                     )}
-
+    
                     <Footer />
                 </div>
             );
         };
-
+    
         // 使用React 18的createRoot API
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
